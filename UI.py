@@ -1,5 +1,3 @@
-# ASCII Video Player v2.0 — Otomatik Bağımlılık Kurulumlu
-
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinter.scrolledtext import ScrolledText
@@ -9,24 +7,20 @@ import os
 import sys
 import subprocess
 
-VERSION = "2.0"
+VERSION = "2.1"
 
 # =======================
-# 1) İŞLEM (Plug-in alanı)
+# 1) İşlem (Plug-in alanı)
 # =======================
 def process_file(file_path, progress_cb, log_cb, get_ascii_chars):
-    """
-    Verilen videoyu kare kare ASCII'ye çevirip arayüzde canlı oynatır.
-    get_ascii_chars(): o an seçili karakter paletini (str) döndüren callback.
-    """
-
-    # OpenCV'yi güvenli import et (GUI hata kutusuna düşsün)
+    """Videoyu kare kare ASCII'ye çevirip arayüzde canlı oynatır."""
+    # OpenCV'yi güvenli import (eksikse GUI'de hata görünsün)
     try:
         import cv2
     except Exception as e:
         raise RuntimeError(
-            "OpenCV (opencv-python) yüklenmemiş görünüyor.\n"
-            "Üst çubuktaki 'Bağımlılıkları Kontrol Et' ile kurmayı deneyebilirsin.\n\n"
+            "OpenCV (opencv-python) yüklü değil.\n"
+            "Araçlar > Bağımlılıkları Kontrol Et menüsünden kurmayı deneyebilirsin.\n\n"
             f"Ayrıntı: {e}"
         )
 
@@ -45,16 +39,16 @@ def process_file(file_path, progress_cb, log_cb, get_ascii_chars):
         for row in resized:
             line = "".join(ascii_chars[int(px * scale)] for px in row)
             lines.append(line)
-        return lines  # satır listesi
+        return lines
 
-    cv2 = sys.modules["cv2"]  # tip ipucu: import edildi
+    cv2 = sys.modules["cv2"]
 
     cap = cv2.VideoCapture(file_path)
     if not cap.isOpened():
         raise RuntimeError("Video açılamadı. Dosya bozuk olabilir veya kodek eksik.")
 
     fps = cap.get(cv2.CAP_PROP_FPS)
-    fps = fps if fps and fps > 0 else 24
+    fps = fps if fps and fps > 0 else 24.0
     frame_dt = 1.0 / fps
     total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 1
 
@@ -70,6 +64,7 @@ def process_file(file_path, progress_cb, log_cb, get_ascii_chars):
         gray = cv2.normalize(gray, None, 0, 255, cv2.NORM_MINMAX)
         ascii_lines = frame_to_ascii(gray, width=80)
 
+        # Canlı gösterim
         ascii_text = "\n".join(ascii_lines)
         log_cb("[[REPLACE]]" + ascii_text)
 
@@ -78,14 +73,12 @@ def process_file(file_path, progress_cb, log_cb, get_ascii_chars):
         if frame_idx % int(fps) == 0:
             log_cb(f"[Frame {frame_idx}]")
 
-        # Biraz bekleme (UI rahatlasın)
-        if frame_dt > 0:
-            time.sleep(frame_dt * 0.5)
+        # UI nefes alsın
+        time.sleep(frame_dt * 0.5)
 
     cap.release()
     log_cb("\n[INFO] Oynatma bitti ✅")
     return "Oynatma tamamlandı."
-
 
 # =======================
 # 2) GUI
@@ -93,13 +86,23 @@ def process_file(file_path, progress_cb, log_cb, get_ascii_chars):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title(f"ASCII Video Player 🎥  — v{VERSION}")
+        self.title(f"ASCII Video Creator 🎥 — v{VERSION} - github.com/llwusill")
         self.geometry("980x600")
         self.minsize(860, 520)
 
         # Paletler (ters eğik çizgi için \\ kullan)
         self.ascii_set_a = "♥@%#\\♣☼+=-:. "
         self.ascii_set_b = " .:-=+☼♣\\#%@♥"
+
+        # Tema renkleri
+        self.colors = {
+            "bg_main": "#202020",
+            "bg_frame": "#313131",
+            "bg_output": "#505050",
+            "fg_text": "#e8e8e8",
+            "accent": "#accfec",
+        }
+        self.light_theme = False
 
         # State
         self.selected_file = None
@@ -109,17 +112,19 @@ class App(tk.Tk):
         self._log_buffer = []
         self.charset_var = tk.StringVar(value="A")  # A veya B
 
-        # === MENÜ ÇUBUĞU ===
+        # === Menü Çubuğu === (tek 'Araçlar' menüsü)
         menubar = tk.Menu(self)
         self.config(menu=menubar)
+        tools_menu = tk.Menu(menubar, tearoff=0)
+        tools_menu.add_command(label="Bağımlılıkları Kontrol Et", command=self.check_dependencies)
+        tools_menu.add_separator()
+        tools_menu.add_command(label="🌙/☀️ Tema Değiştir ", command=self.toggle_dark_mode)
+        menubar.add_cascade(label="Araçlar", menu=tools_menu)
 
-        dep_menu = tk.Menu(menubar, tearoff=0)
-        dep_menu.add_command(label="Bağımlılıkları Kontrol Et", command=self.check_dependencies)
-        menubar.add_cascade(label="Araçlar", menu=dep_menu)
-
-        # === ÜST BAR ===
-        top = ttk.Frame(self, padding=10)
+        # === Üst Bar ===
+        top = tk.Frame(self, bg=self.colors["bg_frame"], bd=2, relief="ridge")
         top.pack(fill="x")
+        
 
         # Sol: dosya & kontrol
         left = ttk.Frame(top)
@@ -137,17 +142,16 @@ class App(tk.Tk):
         self.btn_stop = ttk.Button(left, text="Durdur", command=self.stop_processing, state="disabled")
         self.btn_stop.pack(side="left", padx=6)
 
-        # Sağ üst: Palet seçimi
+        # Sağ: Palet seçimi
         right = ttk.Frame(top)
         right.pack(side="right")
-
         ttk.Label(right, text="Palet:").pack(side="left", padx=(0, 6))
         self.rb_a = ttk.Radiobutton(right, text="A", value="A", variable=self.charset_var)
         self.rb_a.pack(side="left")
         self.rb_b = ttk.Radiobutton(right, text="B", value="B", variable=self.charset_var)
         self.rb_b.pack(side="left", padx=(6, 0))
 
-        # === PROGRESS ===
+        # === Progress ===
         bar = ttk.Frame(self, padding=(10, 0, 10, 10))
         bar.pack(fill="x")
         self.progress = ttk.Progressbar(bar, mode="determinate")
@@ -155,7 +159,7 @@ class App(tk.Tk):
         self.status = ttk.Label(bar, text="Hazır")
         self.status.pack(anchor="w", pady=(6, 0))
 
-        # === ÇIKTI ALANI (yatay kaydırmalı) ===
+        # === Çıktı Alanı (yatay kaydırmalı) ===
         mid = ttk.Frame(self, padding=10)
         mid.pack(fill="both", expand=True)
 
@@ -165,7 +169,7 @@ class App(tk.Tk):
         self.output.configure(xscrollcommand=hbar.set)
         hbar.pack(fill="x", side="bottom")
 
-        # Tema (opsiyonel)
+        # Tema (istemiyorsan vista bölümünü kaldırabilirsin)
         try:
             style = ttk.Style(self)
             if "vista" in style.theme_names():
@@ -173,19 +177,56 @@ class App(tk.Tk):
         except Exception:
             pass
 
-        # Uygulama açılışında bağımlılık kontrolü (sana sorar)
-        # İstersen otomatik kontrol istemezsen bu satırı yorumlayabilirsin.
+        # Tüm widget'lar hazırlandıktan sonra koyu temayı uygula
+        self.apply_dark_mode()
+
+        # Açılışta bağımlılık kontrolü (istemiyorsan bu satırı yorumla)
         self.after(200, self.check_dependencies)
 
-    # Paleti anlık döndüren fonksiyon
+    # ===== Tema =====
+    def apply_dark_mode(self):
+        c = self.colors
+        self.configure(bg=c["bg_main"])
+
+        style = ttk.Style(self)
+        style.configure("TFrame", background=c["bg_main"])
+        style.configure("TLabel", background=c["bg_main"], foreground=c["fg_text"])
+        style.configure("TButton", background=c["bg_frame"])
+        style.configure(
+            "Horizontal.TProgressbar",
+            troughcolor=c["bg_frame"], background=c["accent"]
+        )
+
+        # ScrolledText alanı
+        self.output.configure(
+            background=c["bg_output"],
+            foreground=c["fg_text"],
+            insertbackground=c["fg_text"],  # caret rengi
+        )
+
+    def toggle_dark_mode(self):
+        # Açık/koyu arasında geçiş
+        self.light_theme = not self.light_theme
+        if self.light_theme:
+            style = ttk.Style(self)
+            style.theme_use("default")
+            self.configure(bg="#f0f0f0")
+            self.output.configure(
+                background="#ffffff",
+                foreground="#000000",
+                insertbackground="#000000"
+            )
+            self.status.config(text="Açık tema aktif ☀️")
+        else:
+            self.apply_dark_mode()
+            self.status.config(text="Koyu tema aktif 🌙")
+
+    # ===== Palet & Bağımlılıklar =====
     def get_ascii_chars(self):
         return self.ascii_set_a if self.charset_var.get() == "A" else self.ascii_set_b
 
-    # ---------- Bağımlılık Kontrol & Otomatik Kurulum ----------
     def check_dependencies(self):
         missing = []
-
-        # cv2 mevcut mu?
         try:
             import cv2  # noqa
         except Exception:
@@ -203,7 +244,7 @@ class App(tk.Tk):
         ):
             self.install_packages(missing)
         else:
-            self.status.config(text="Eksik paketler var ❗ Lütfen yükleyin.")
+            self.status.config(text="Eksik paket(ler) var ❗")
 
     def install_packages(self, packages):
         """Paketleri arka planda kur ve sonucu bildir."""
@@ -211,7 +252,6 @@ class App(tk.Tk):
             self._set_ui_busy(True, note="Paketler yükleniyor…")
             cmd = [sys.executable, "-m", "pip", "install"] + packages
             try:
-                # Windows'ta uzun çıktı UI'yı kilitlemesin diye run + capture
                 proc = subprocess.run(
                     cmd,
                     stdout=subprocess.PIPE,
@@ -225,7 +265,6 @@ class App(tk.Tk):
                 ok = False
                 output = f"[Hata] pip çağrısı başarısız: {e}"
 
-            # Sonuç diyaloğu
             if ok:
                 messagebox.showinfo("Kurulum Bitti", f"Paketler yüklendi:\n\n{', '.join(packages)}")
                 self.status.config(text="Bağımlılıklar yüklendi ✅")
@@ -233,8 +272,7 @@ class App(tk.Tk):
                 messagebox.showerror(
                     "Kurulum Hatası",
                     "Paket kurulumu başarısız oldu.\n\n"
-                    "pip çıktısı aşağıdadır (kopyalayıp uzmanla paylaşabilirsiniz):\n\n"
-                    + output[:4000]  # çok uzun olmasın
+                    "pip çıktısı aşağıdadır:\n\n" + output[:4000]
                 )
                 self.status.config(text="Kurulum başarısız ❌")
 
@@ -243,7 +281,6 @@ class App(tk.Tk):
         threading.Thread(target=worker, daemon=True).start()
 
     def _set_ui_busy(self, busy: bool, note: str = ""):
-        """Basit bir 'meşgul' durumu: butonları kilitle, durum yaz."""
         state = "disabled" if busy else "normal"
         for w in (self.btn_select, self.btn_run, self.btn_stop, self.rb_a, self.rb_b):
             try:
@@ -255,7 +292,7 @@ class App(tk.Tk):
         else:
             self.status.config(text="Hazır")
 
-    # ---------- UI Callbacks ----------
+    # ===== UI Callbacks =====
     def select_file(self):
         path = filedialog.askopenfilename(
             title="Video Seç",
@@ -295,7 +332,7 @@ class App(tk.Tk):
             self.stop_flag = True
             self.status.config(text="Durdurma isteniyor…")
 
-    # ---------- Worker Orchestrasyonu ----------
+    # ===== Worker Orchestrasyonu =====
     def _run_job(self):
         try:
             def progress_cb(ratio):
