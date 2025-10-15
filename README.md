@@ -1,4 +1,4 @@
-# 🎥 ASCII Video Player v2.0  
+# 🎥 ASCII Video Creator Wıth UI  
 **Python + Tkinter GUI tabanlı video-to-ASCII oynatıcı**
 
 ASCII Video Player, herhangi bir video dosyasını (`.mp4`, `.avi`, `.mov`, `.mkv`) alıp kare kare **ASCII karakterlerine dönüştürerek canlı olarak terminal benzeri bir pencerede oynatır.**  
