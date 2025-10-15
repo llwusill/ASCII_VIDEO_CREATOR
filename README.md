@@ -15,7 +15,8 @@ Sade, eğlenceli ve genişletilebilir bir GUI (arayüz) ile gelir.
 ✅ Dinamik palet geçişi (oynarken bile değiştirilebilir)  
 ✅ Otomatik bağımlılık kontrolü ve yükleme sistemi (v2.0 ile geldi 🎉)  
 ✅ Çok iş parçacıklı (UI donmaz)  
-✅ Hata ve durum mesajları GUI üzerinden görüntülenir  
+✅ Hata ve durum mesajları GUI üzerinden görüntülenir
+✅ Değiştirilebilir Tema (v2.1 ile geldi🎉)
 
 ## ⚙️ Gereksinimler
 
@@ -25,7 +26,7 @@ Sade, eğlenceli ve genişletilebilir bir GUI (arayüz) ile gelir.
 
 ### Gerekli Python paketleri:
 - `opencv-python`
-- (otomatik olarak yüklenir; elle yüklemek istersen:)
+- (otomatik olarak yüklenir; elle yüklemek istersen veya uyarı verirse:)
   ```bash
   pip install opencv-python
   ```
